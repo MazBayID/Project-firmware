@@ -1,0 +1,138 @@
+name: Build XiaoZhi Huy Vector C3 - Faces TTP223
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v6.1
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare workspace
+        shell: bash
+        run: |
+          set -e
+
+          echo "Repository contents:"
+          ls -la
+
+          ZIP_FILE="$(find . -maxdepth 2 -type f -iname '*.zip' | head -n 1)"
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: No source ZIP file found."
+            exit 1
+          fi
+
+          echo "Using source ZIP: $ZIP_FILE"
+
+          rm -rf xiaozhi-source
+          mkdir -p xiaozhi-source
+
+          unzip -q "$ZIP_FILE" -d xiaozhi-source
+
+          echo "Extracted files:"
+          find xiaozhi-source -maxdepth 3 -type f | head -100
+
+      - name: Locate XiaoZhi source
+        shell: bash
+        run: |
+          set -e
+
+          SOURCE_DIR="$(find xiaozhi-source -type f -name 'CMakeLists.txt' -printf '%h\n' | head -n 1)"
+
+          if [ -z "$SOURCE_DIR" ]; then
+            echo "ERROR: Could not find XiaoZhi source directory."
+            echo "The ZIP must contain a CMakeLists.txt."
+            exit 1
+          fi
+
+          echo "XiaoZhi source directory: $SOURCE_DIR"
+          echo "SOURCE_DIR=$SOURCE_DIR" >> "$GITHUB_ENV"
+
+      - name: Build firmware
+        shell: bash
+        run: |
+          set -e
+
+          cd "$SOURCE_DIR"
+
+          echo "ESP-IDF version:"
+          idf.py --version
+
+          echo "Building Huy Vector C3..."
+          python scripts/build.py huy-vector/c3 --language en-US
+
+      - name: Check build output
+        shell: bash
+        run: |
+          set -e
+
+          cd "$SOURCE_DIR"
+
+          echo "Build directory:"
+          ls -lah build || true
+
+          if [ ! -f build/merged-binary.bin ]; then
+            echo "ERROR: build/merged-binary.bin was not created."
+            exit 1
+          fi
+
+          echo "Firmware found:"
+          ls -lh build/merged-binary.bin
+
+      - name: Package firmware
+        shell: bash
+        run: |
+          set -e
+
+          mkdir -p release
+
+          cp "$SOURCE_DIR/build/merged-binary.bin" \
+             release/XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin
+
+          cp "$SOURCE_DIR/build/merged-binary.bin" \
+             release/merged-binary.bin
+
+          cat > release/FLASH_INFO.txt <<'EOF'
+XiaoZhi Huy Vector C3 - Faces + TTP223 v1.0
+
+Target:
+ESP32-C3
+
+Firmware:
+XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin
+
+Flash offset:
+0x0
+
+This is a merged firmware binary.
+Flash the complete binary at offset 0x0.
+EOF
+
+          cd release
+          zip -9 XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0-FIRMWARE.zip \
+              XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin \
+              merged-binary.bin \
+              FLASH_INFO.txt
+
+          echo "Release files:"
+          ls -lh
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0
+          path: |
+            release/XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin
+            release/merged-binary.bin
+            release/XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0-FIRMWARE.zip
+            release/FLASH_INFO.txt
+          if-no-files-found: error
