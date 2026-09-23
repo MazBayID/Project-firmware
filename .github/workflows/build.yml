@@ -18,6 +18,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup ESP-IDF environment
+        shell: bash
+        run: |
+          set -e
+
+          if [ -f /opt/esp/idf/export.sh ]; then
+            source /opt/esp/idf/export.sh
+          elif [ -f /opt/esp/export.sh ]; then
+            source /opt/esp/export.sh
+          else
+            echo "ERROR: ESP-IDF export.sh not found."
+            exit 1
+          fi
+
+          echo "ESP-IDF environment loaded."
+
+          idf.py --version
+          python --version
+
+          echo "IDF_PATH=$IDF_PATH" >> "$GITHUB_ENV"
+          echo "$PATH" >> "$GITHUB_PATH"
+
       - name: Extract XiaoZhi source
         shell: bash
         run: |
@@ -26,7 +48,8 @@ jobs:
           rm -rf xiaozhi-source
           mkdir -p xiaozhi-source
 
-          unzip -q "Xiaozhi-HuyVector-C3-DasaiMochi-Face-TTP223-v1.0-source.zip" \
+          unzip -q \
+            "Xiaozhi-HuyVector-C3-DasaiMochi-Face-TTP223-v1.0-source.zip" \
             -d xiaozhi-source
 
           echo "=== Extracted source ==="
@@ -54,21 +77,18 @@ jobs:
 
           echo "SOURCE_DIR=$SOURCE_DIR" >> "$GITHUB_ENV"
 
-      - name: Check ESP-IDF
-        shell: bash
-        run: |
-          idf.py --version
-          python --version
-
       - name: Build firmware
         shell: bash
         run: |
           set -e
 
+          source /opt/esp/idf/export.sh
+
           cd "$SOURCE_DIR"
 
           echo "========================================"
-          echo "Building Huy Vector C3"
+          echo "Building XiaoZhi Huy Vector C3"
+          echo "Faces + TTP223 v1.0"
           echo "========================================"
 
           python scripts/build.py huy-vector/c3 --language en-US
@@ -101,10 +121,12 @@ jobs:
 
           mkdir -p release
 
-          cp "$SOURCE_DIR/build/merged-binary.bin" \
+          cp \
+            "$SOURCE_DIR/build/merged-binary.bin" \
             "release/XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin"
 
-          cp "$SOURCE_DIR/build/merged-binary.bin" \
+          cp \
+            "$SOURCE_DIR/build/merged-binary.bin" \
             "release/merged-binary.bin"
 
           printf '%s\n' \
