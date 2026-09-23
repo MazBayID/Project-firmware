@@ -55,7 +55,7 @@ jobs:
           echo "=== Extracted source ==="
           find xiaozhi-source -maxdepth 3 -type f | head -100
 
-            - name: Locate XiaoZhi project
+      - name: Locate XiaoZhi project
         shell: bash
         run: |
           set -e
