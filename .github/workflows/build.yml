@@ -1,4 +1,4 @@
-name: Build XiaoZhi Huy Vector C3 - Faces TTP223
+name: Build XiaoZhi Huy Vector C3 Faces TTP223
 
 on:
   workflow_dispatch:
@@ -9,54 +9,71 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     container:
       image: espressif/idf:v6.1
 
     steps:
+      # ==========================================
+      # 1. Checkout repository
+      # ==========================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare workspace
+      # ==========================================
+      # 2. Extract source ZIP
+      # ==========================================
+      - name: Extract XiaoZhi source
         shell: bash
         run: |
           set -e
-
-          echo "Repository contents:"
-          ls -la
-
-          ZIP_FILE="$(find . -maxdepth 2 -type f -iname '*.zip' | head -n 1)"
-
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No source ZIP file found."
-            exit 1
-          fi
-
-          echo "Using source ZIP: $ZIP_FILE"
 
           rm -rf xiaozhi-source
           mkdir -p xiaozhi-source
 
-          unzip -q "$ZIP_FILE" -d xiaozhi-source
+          unzip -q "Xiaozhi-HuyVector-C3-DasaiMochi-Face-TTP223-v1.0-source.zip" \
+            -d xiaozhi-source
 
-          echo "Extracted files:"
+          echo "=== Extracted source ==="
           find xiaozhi-source -maxdepth 3 -type f | head -100
 
-      - name: Locate XiaoZhi source
+      # ==========================================
+      # 3. Find actual XiaoZhi project directory
+      # ==========================================
+      - name: Locate XiaoZhi project
         shell: bash
         run: |
           set -e
 
-          SOURCE_DIR="$(find xiaozhi-source -type f -name 'CMakeLists.txt' -printf '%h\n' | head -n 1)"
+          SOURCE_DIR=$(find xiaozhi-source \
+            -type f \
+            -name "CMakeLists.txt" \
+            -print \
+            | head -n 1 \
+            | xargs dirname)
 
           if [ -z "$SOURCE_DIR" ]; then
-            echo "ERROR: Could not find XiaoZhi source directory."
-            echo "The ZIP must contain a CMakeLists.txt."
+            echo "ERROR: CMakeLists.txt not found."
             exit 1
           fi
 
-          echo "XiaoZhi source directory: $SOURCE_DIR"
+          echo "XiaoZhi source directory:"
+          echo "$SOURCE_DIR"
+
           echo "SOURCE_DIR=$SOURCE_DIR" >> "$GITHUB_ENV"
 
+      # ==========================================
+      # 4. Show ESP-IDF version
+      # ==========================================
+      - name: Check ESP-IDF
+        shell: bash
+        run: |
+          idf.py --version
+          python --version
+
+      # ==========================================
+      # 5. Build XiaoZhi
+      # ==========================================
       - name: Build firmware
         shell: bash
         run: |
@@ -64,31 +81,44 @@ jobs:
 
           cd "$SOURCE_DIR"
 
-          echo "ESP-IDF version:"
-          idf.py --version
+          echo "========================================"
+          echo "Building Huy Vector C3"
+          echo "========================================"
 
-          echo "Building Huy Vector C3..."
           python scripts/build.py huy-vector/c3 --language en-US
 
-      - name: Check build output
+      # ==========================================
+      # 6. Check merged firmware
+      # ==========================================
+      - name: Check firmware
         shell: bash
         run: |
           set -e
 
           cd "$SOURCE_DIR"
 
-          echo "Build directory:"
-          ls -lah build || true
+          echo "=== Build directory ==="
+          ls -lah build/
 
-          if [ ! -f build/merged-binary.bin ]; then
-            echo "ERROR: build/merged-binary.bin was not created."
+          if [ ! -f "build/merged-binary.bin" ]; then
+            echo ""
+            echo "ERROR:"
+            echo "build/merged-binary.bin was NOT created."
+            echo ""
             exit 1
           fi
 
-          echo "Firmware found:"
+          echo ""
+          echo "========================================"
+          echo "MERGED FIRMWARE FOUND"
+          echo "========================================"
+
           ls -lh build/merged-binary.bin
 
-      - name: Package firmware
+      # ==========================================
+      # 7. Prepare release files
+      # ==========================================
+      - name: Prepare firmware
         shell: bash
         run: |
           set -e
@@ -96,16 +126,17 @@ jobs:
           mkdir -p release
 
           cp "$SOURCE_DIR/build/merged-binary.bin" \
-             release/XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin
+            release/XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin
 
           cp "$SOURCE_DIR/build/merged-binary.bin" \
-             release/merged-binary.bin
+            release/merged-binary.bin
 
-          cat > release/FLASH_INFO.txt <<'EOF'
-XiaoZhi Huy Vector C3 - Faces + TTP223 v1.0
+          cat > release/FLASH_INFO.txt <<EOF
+XiaoZhi Huy Vector C3
+Faces + TTP223 v1.0
 
 Target:
-ESP32-C3
+ESP32-C3 Super Mini
 
 Firmware:
 XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin
@@ -113,20 +144,37 @@ XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin
 Flash offset:
 0x0
 
+IMPORTANT:
 This is a merged firmware binary.
 Flash the complete binary at offset 0x0.
 EOF
 
-          cd release
-          zip -9 XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0-FIRMWARE.zip \
-              XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin \
-              merged-binary.bin \
-              FLASH_INFO.txt
+          echo "=== Release files ==="
+          ls -lh release/
 
-          echo "Release files:"
+      # ==========================================
+      # 8. Create firmware ZIP
+      # ==========================================
+      - name: Create firmware ZIP
+        shell: bash
+        run: |
+          set -e
+
+          cd release
+
+          zip -9 \
+            XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0-FIRMWARE.zip \
+            XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin \
+            merged-binary.bin \
+            FLASH_INFO.txt
+
+          echo "=== Final firmware package ==="
           ls -lh
 
-      - name: Upload firmware artifact
+      # ==========================================
+      # 9. Upload firmware artifact
+      # ==========================================
+      - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
           name: XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0
