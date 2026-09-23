@@ -49,7 +49,7 @@ jobs:
           mkdir -p xiaozhi-source
 
           unzip -q \
-            "Xiaozhi-HuyVector-C3-DasaiMochi-Face-TTP223-v1.0-source.zip" \
+            "V2.zip" \
             -d xiaozhi-source
 
           echo "=== Extracted source ==="
