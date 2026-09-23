@@ -14,15 +14,10 @@ jobs:
       image: espressif/idf:v6.1
 
     steps:
-      # ==========================================
-      # 1. Checkout repository
-      # ==========================================
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ==========================================
-      # 2. Extract source ZIP
-      # ==========================================
       - name: Extract XiaoZhi source
         shell: bash
         run: |
@@ -37,9 +32,6 @@ jobs:
           echo "=== Extracted source ==="
           find xiaozhi-source -maxdepth 3 -type f | head -100
 
-      # ==========================================
-      # 3. Find actual XiaoZhi project directory
-      # ==========================================
       - name: Locate XiaoZhi project
         shell: bash
         run: |
@@ -62,18 +54,12 @@ jobs:
 
           echo "SOURCE_DIR=$SOURCE_DIR" >> "$GITHUB_ENV"
 
-      # ==========================================
-      # 4. Show ESP-IDF version
-      # ==========================================
       - name: Check ESP-IDF
         shell: bash
         run: |
           idf.py --version
           python --version
 
-      # ==========================================
-      # 5. Build XiaoZhi
-      # ==========================================
       - name: Build firmware
         shell: bash
         run: |
@@ -87,9 +73,6 @@ jobs:
 
           python scripts/build.py huy-vector/c3 --language en-US
 
-      # ==========================================
-      # 6. Check merged firmware
-      # ==========================================
       - name: Check firmware
         shell: bash
         run: |
@@ -101,23 +84,16 @@ jobs:
           ls -lah build/
 
           if [ ! -f "build/merged-binary.bin" ]; then
-            echo ""
-            echo "ERROR:"
-            echo "build/merged-binary.bin was NOT created."
-            echo ""
+            echo "ERROR: build/merged-binary.bin was NOT created."
             exit 1
           fi
 
-          echo ""
           echo "========================================"
           echo "MERGED FIRMWARE FOUND"
           echo "========================================"
 
           ls -lh build/merged-binary.bin
 
-      # ==========================================
-      # 7. Prepare release files
-      # ==========================================
       - name: Prepare firmware
         shell: bash
         run: |
@@ -126,35 +102,26 @@ jobs:
           mkdir -p release
 
           cp "$SOURCE_DIR/build/merged-binary.bin" \
-            release/XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin
+            "release/XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin"
 
           cp "$SOURCE_DIR/build/merged-binary.bin" \
-            release/merged-binary.bin
+            "release/merged-binary.bin"
 
-          cat > release/FLASH_INFO.txt <<EOF
-XiaoZhi Huy Vector C3
-Faces + TTP223 v1.0
-
-Target:
-ESP32-C3 Super Mini
-
-Firmware:
-XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin
-
-Flash offset:
-0x0
-
-IMPORTANT:
-This is a merged firmware binary.
-Flash the complete binary at offset 0x0.
-EOF
+          printf '%s\n' \
+            "XiaoZhi Huy Vector C3" \
+            "Faces + TTP223 v1.0" \
+            "" \
+            "Target: ESP32-C3 Super Mini" \
+            "Flash offset: 0x0" \
+            "" \
+            "IMPORTANT:" \
+            "This is a merged firmware binary." \
+            "Flash the complete binary at offset 0x0." \
+            > release/FLASH_INFO.txt
 
           echo "=== Release files ==="
           ls -lh release/
 
-      # ==========================================
-      # 8. Create firmware ZIP
-      # ==========================================
       - name: Create firmware ZIP
         shell: bash
         run: |
@@ -163,17 +130,14 @@ EOF
           cd release
 
           zip -9 \
-            XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0-FIRMWARE.zip \
-            XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin \
-            merged-binary.bin \
-            FLASH_INFO.txt
+            "XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0-FIRMWARE.zip" \
+            "XiaoZhi-HuyVector-C3-Faces-TTP223-v1.0.bin" \
+            "merged-binary.bin" \
+            "FLASH_INFO.txt"
 
           echo "=== Final firmware package ==="
           ls -lh
 
-      # ==========================================
-      # 9. Upload firmware artifact
-      # ==========================================
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
