@@ -49,7 +49,7 @@ jobs:
           mkdir -p xiaozhi-source
 
           unzip -q \
-            "XC-v1.zip" \
+            "xc-v3.zip" \
             -d xiaozhi-source
 
           echo "=== Extracted source ==="
